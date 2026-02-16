@@ -1,36 +1,85 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Smart Bookmark Manager
 
-## Getting Started
+A real-time bookmark manager where users can save, organize, and access their bookmarks from anywhere — with instant sync across tabs.
 
-First, run the development server:
+## Live URL
+
+[https://smart-bookmark-app.vercel.app](https://smart-bookmark-app.vercel.app)
+_(will be updated after deployment)_
+
+## Tech Stack
+
+- **Next.js 15** (App Router)
+- **Supabase** (Auth, PostgreSQL Database, Realtime)
+- **Tailwind CSS** (Styling)
+- **TypeScript**
+- **Vercel** (Deployment)
+
+## Features
+
+- Google OAuth sign-in (no email/password)
+- Add and delete bookmarks (URL + title)
+- Bookmarks are private per user (Row Level Security)
+- Real-time sync across multiple tabs without page refresh
+- Mobile responsive design
+
+## How to Run Locally
+
+1. Clone the repo:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+   git clone https://github.com/YOUR_USERNAME/smart-bookmark-app.git
+   cd smart-bookmark-app
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. Install dependencies:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+   npm install
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+3. Create a `.env.local` file and add your Supabase credentials:
 
-## Learn More
+```
+   NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
 
-To learn more about Next.js, take a look at the following resources:
+4. Set up Supabase:
+   - Create a new project in Supabase
+   - Run the SQL in `supabase/migrations/001_create_bookmarks.sql` in the SQL Editor
+   - Enable Google provider under Authentication > Sign In / Providers
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+5. Run the dev server:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+   npm run dev
+```
 
-## Deploy on Vercel
+## Problems Faced & Solutions
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### 1. Redirect Loop on Landing Page (ERR_TOO_MANY_REDIRECTS)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The root layout (`src/app/layout.tsx`) accidentally had auth-guard logic that redirected unauthenticated users to `/` — which itself was wrapped by the same layout, causing an infinite redirect loop. The fix was keeping the root layout clean (no auth checks) and handling auth redirection only in the middleware for protected routes like `/dashboard`.
+
+### 2. OAuth Redirect URI Mismatch
+
+Google OAuth requires the redirect URI to match exactly. The authorized redirect URI in Google Cloud Console must point to Supabase's callback endpoint (`https://<project-ref>.supabase.co/auth/v1/callback`), not to the app's `/auth/callback` route. The app's callback route only handles the code exchange after Supabase processes the OAuth flow.
+
+### 3. Supabase Realtime Requires Explicit Setup
+
+Real-time subscriptions don't work out of the box. The `bookmarks` table must be explicitly added to the `supabase_realtime` publication using `ALTER PUBLICATION supabase_realtime ADD TABLE public.bookmarks`. Without this, the client subscribes but never receives events.
+
+### 4. Middleware Session Refresh is Essential
+
+Without middleware refreshing the session cookie on every request, the auth session silently expires after about an hour. This was solved by using `@supabase/ssr`'s `createServerClient` in middleware to call `getUser()` on every request, which keeps the session alive.
+
+### 5. Three Separate Supabase Clients Needed
+
+The App Router requires three different Supabase client configurations: one for browser/client components (`createBrowserClient`), one for server components using `cookies()` from `next/headers`, and one for middleware that reads/writes cookies via the request/response objects. Using the wrong client in the wrong context causes silent auth failures.
+
+## Architecture Decisions
+
+- **Monolithic Next.js**: Chose a single Next.js app over separate frontend/backend since Supabase handles the entire backend (auth, database, realtime). No need for a custom API layer.
+- **Row Level Security over API-level auth**: RLS policies enforce data privacy at the database level. Even if application code has bugs, users can never access each other's bookmarks because the database itself enforces ownership checks.
+- **Middleware for session management**: Rather than checking auth in every page/component, the middleware handles session refresh globally and protects routes centrally.
