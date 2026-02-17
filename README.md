@@ -46,17 +46,22 @@ Enable Google provider
 Start dev server
 npm run dev
 
-Key Learnings
-
--Avoid auth logic in root layout (redirect loops)
--Correct OAuth redirect URI configuration
--Realtime requires publication setup
--Middleware session refresh prevents silent expiry
--Separate Supabase clients for browser/server/middleware
-
 Architecture
 
 -Monolithic Next.js app
 -Supabase as backend (auth, database, realtime)
 -Row Level Security for data protection
 -Middleware for centralized session handling
+
+Challenges and how i solved them:
+Challenge 1: Google OAuth Redirect Configuration
+OAuth has two callbacks — Google redirects to Supabase, then Supabase redirects to our app. I initially pointed Google's redirect URI to my app instead of Supabase, breaking the flow.
+Solution: Mapped out the two-callback flow. Set Google Console's redirect URI to supabase.co/auth/v1/callback, and configured Supabase's Site URL to point to my Vercel domain. Updated both when deploying to production. Reffered some YT videos.
+
+Challenge 2: Securing User Data
+User A should never see User B's bookmarks. Doing this at the API level is risky — one missed WHERE user_id = ? could leak data.
+Solution: Used Row Level Security (RLS) instead of application-level checks. Wrote SQL policies for SELECT, INSERT, and DELETE that check auth.uid() = user_id. The database enforces privacy automatically, even if frontend code has bugs. Extra check, AI suggestion.
+
+Challenge 3: Real-time Not Working
+Added the real-time subscription code but changes weren't syncing across tabs.
+Solution: Realized I hadn't enabled real-time on the table. Ran alter publication supabase_realtime add table public.bookmarks; in Supabase SQL editor.
