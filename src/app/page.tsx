@@ -9,10 +9,9 @@ export default function Home() {
           Smart Bookmark Manager
         </h1>
         <p className="mt-3 text-lg text-gray-600">
-          Save, organize, and access your bookmarks from anywhere — in real
-          time.
+          Save, organize, and access your bookmarks from anywhere in real time.
         </p>
-        <div className="mt-8">
+        <div className="mt-8 flex justify-center">
           <LoginButton />
         </div>
       </div>
