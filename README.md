@@ -26,7 +26,7 @@ Features
 Run Locally
 
 Clone the repo
-git clone https://github.com/YOUR_USERNAME/smart-bookmark-app.git
+git clone https://github.com/digvijay10x/smart-bookmark-app.git
 
 cd smart-bookmark-app
 
